@@ -37,14 +37,15 @@ const DeployScreen: React.FC = () => {
       const failures: string[] = [];
       for (let i = 0; i < targets.length; i++) {
         const d = targets[i];
-        const progress = ((i + 1) / targets.length) * 100;
-        setProgress('Deploying APK', progress, `Installing on ${d.name}...`);
+        setProgress('Deploying APK', (i / targets.length) * 100, `Installing on ${d.name}...`);
         setStatus(`Installing on ${d.name}…`);
         try {
           await TvControlService.installApk(d.deviceId, apkPath);
         } catch (error: any) {
           failures.push(`${d.name}: ${error?.message || 'Install failed'}`);
         }
+        const progress = ((i + 1) / targets.length) * 100;
+        setProgress('Deploying APK', progress, `Completed ${i + 1}/${targets.length} TV(s)...`);
       }
       const message = failures.length ? `Installed on ${targets.length - failures.length}/${targets.length} TV(s).\n${failures.join('\n')}` : `Installed on ${targets.length} TV(s).`;
       setStatus(message);

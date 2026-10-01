@@ -4,6 +4,8 @@ import DocumentPicker from 'react-native-document-picker';
 import { Colors } from '../constants/colors';
 import { TvControlService } from '../services/TvControlService';
 import { useDeviceStore } from '../store/deviceStore';
+import { useProgressStore } from '../store/progressStore';
+import { ProgressBar } from '../components/ProgressBar';
 import { normalizePickedPath } from '../utils/selectedDevice';
 
 type RemoteFile = { name: string; size: string; permissions: string };
@@ -14,6 +16,7 @@ const isValidName = (name: string) => name.trim().length > 0 && !/[\\/\0]/.test(
 
 const FilesScreen: React.FC = () => {
   const { devices } = useDeviceStore();
+  const { setProgress, clearProgress } = useProgressStore();
   const connected = devices.filter(device => device.state === 'Connected');
   const [targetId, setTargetId] = React.useState<string>();
   const [path, setPath] = React.useState('/sdcard/');
@@ -38,9 +41,13 @@ const FilesScreen: React.FC = () => {
     try {
       const picked = await DocumentPicker.pickSingle({ copyTo: 'cachesDirectory' });
       setBusy(true);
+      setProgress('Uploading File', 0, `Uploading to ${target.name}...`);
       await TvControlService.pushFile(target.deviceId, normalizePickedPath(picked.fileCopyUri || picked.uri), remotePath(path, picked.name || 'upload.bin'));
-      Alert.alert('Upload complete', `File uploaded to ${target.name}.`); await refresh();
-    } catch (error: any) { if (!DocumentPicker.isCancel(error)) Alert.alert('Upload failed', error?.message || 'Unable to upload file.'); }
+      setProgress('Uploading File', 100, 'Upload complete');
+      Alert.alert('Upload complete', `File uploaded to ${target.name}.`);
+      setTimeout(clearProgress, 2000);
+      await refresh();
+    } catch (error: any) { if (!DocumentPicker.isCancel(error)) { setProgress('Uploading File', 0, 'Upload failed'); Alert.alert('Upload failed', error?.message || 'Unable to upload file.'); setTimeout(clearProgress, 2000); } }
     finally { setBusy(false); }
   };
   const createFolder = async () => {
@@ -83,6 +90,7 @@ const FilesScreen: React.FC = () => {
 
   return <ScrollView style={s.container} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
     <View style={s.header}><Text style={s.title}>File Manager</Text><Text style={s.hint}>Open any folder to upload there, rename items, or delete files and folders.</Text></View>
+    <ProgressBar />
     <View style={s.card}>
       <Text style={s.label}>CONNECTED TV</Text><View style={s.choices}>{connected.map(device => <TouchableOpacity key={device.deviceId} style={[s.choice, target?.deviceId === device.deviceId && s.choiceActive]} onPress={() => { setTargetId(device.deviceId); setFiles([]); }}><Text style={s.choiceText}>{device.name}</Text></TouchableOpacity>)}</View>
       <Text style={s.label}>CURRENT FOLDER</Text><TextInput value={path} onChangeText={setPath} style={s.input} autoCapitalize="none" />

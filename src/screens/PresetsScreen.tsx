@@ -23,22 +23,25 @@ const PresetsScreen: React.FC = () => {
 
       for (const device of devices) {
         for (const step of preset.steps) {
+          const p = String(step.params.packageName || '');
           try {
-            const p = String(step.params.packageName || '');
             if (step.type === 'DISABLE_PACKAGE') {
-              setProgress('Running Cleanup', (completedSteps / totalSteps) * 100, `Disabling ${p} on ${device.name}...`);
               await TvControlService.shell(device.deviceId, `pm disable-user --user 0 ${p}`);
             }
             if (step.type === 'ENABLE_PACKAGE') {
-              setProgress('Running Cleanup', (completedSteps / totalSteps) * 100, `Enabling ${p} on ${device.name}...`);
-              await TvControlService.shell(device.deviceId, `pm enable --user 0 ${p}`);
+              await TvControlService.enablePackage(device.deviceId, p);
             }
             if (step.type === 'SHELL_COMMAND') {
-              setProgress('Running Cleanup', (completedSteps / totalSteps) * 100, `Running command on ${device.name}...`);
               await TvControlService.shell(device.deviceId, String(step.params.command || ''));
             }
+            if (step.type === 'REBOOT') {
+              await TvControlService.rebootDevice(device.deviceId);
+            }
             completedSteps++;
-          } catch {
+            const progress = (completedSteps / totalSteps) * 100;
+            setProgress('Running Cleanup', progress, step.type === 'REBOOT' ? `Rebooting ${device.name}...` : `Completed ${completedSteps}/${totalSteps} steps...`);
+          } catch (error: any) {
+            console.error(`Failed to ${step.type} ${p} on ${device.name}:`, error?.message || error);
             skipped++;
             completedSteps++;
           }
@@ -62,19 +65,19 @@ const PresetsScreen: React.FC = () => {
   return (
     <ScrollView style={s.container} contentContainerStyle={s.content}>
       <View style={s.header}>
-        <Text style={s.title}>Cleanup Presets</Text>
-        <Text style={s.hint}>Select TVs on the TVs page. Each command is applied to every selected TV.</Text>
+        <Text style={s.title}>TV Cleanup</Text>
+        <Text style={s.hint}>Select TVs on the TVs page. Full cleanup disables unwanted apps and optimizes settings.</Text>
       </View>
       <ProgressBar />
       {presets.map(preset => (
         <View key={preset.id} style={s.card}>
           <Text style={s.name}>{preset.name}</Text>
           <Text style={s.meta}>{preset.steps.filter(x => x.type === 'DISABLE_PACKAGE').length} app disables · {preset.steps.filter(x => x.type === 'SHELL_COMMAND').length} settings</Text>
-          <Text style={s.note}>Changes updates, notifications, screen timeout and selected system apps. Unsupported packages are safely skipped.</Text>
+          <Text style={s.note}>Disables CloudWalker system apps, disables OTA updates, and optimizes performance settings. Unsupported packages are safely skipped.</Text>
           <TouchableOpacity
             style={[s.run, runningId && s.disabled]}
             disabled={!!runningId}
-            onPress={() => Alert.alert('Run cleanup?', `Apply this cleanup to all selected TVs? This disables system apps and changes device settings.`, [
+            onPress={() => Alert.alert('Run cleanup?', `Apply full cleanup to all selected TVs? This disables system apps and optimizes settings.`, [
               { text: 'Cancel', style: 'cancel' },
               { text: 'Run cleanup', style: 'destructive', onPress: () => run(preset) }
             ])}

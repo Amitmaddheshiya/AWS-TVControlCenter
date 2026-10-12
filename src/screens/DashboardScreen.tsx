@@ -2,11 +2,17 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useDeviceStore } from '../store/deviceStore';
+import { useLogStore } from '../store/logStore';
+import { useDeploymentStore } from '../store/deploymentStore';
+import { useProgressStore } from '../store/progressStore';
 import { Colors } from '../constants/colors';
 import { TvControlService } from '../services/TvControlService';
 
 const DashboardScreen: React.FC = () => {
-  const { devices, addDevice, updateDevice } = useDeviceStore();
+  const { devices, addDevice, updateDevice, clearDevices } = useDeviceStore();
+  const { clearLogs } = useLogStore();
+  const { clearJobs } = useDeploymentStore();
+  const { clearProgress } = useProgressStore();
   const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = React.useState(false);
   const [scanning, setScanning] = React.useState(false);
@@ -57,6 +63,27 @@ const DashboardScreen: React.FC = () => {
     } finally { setScanning(false); }
   };
 
+  const clearAllData = () => {
+    Alert.alert(
+      'Clear All Data?',
+      'This will remove all saved devices, logs, deployment history, and progress data. This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear Data',
+          style: 'destructive',
+          onPress: () => {
+            clearDevices();
+            clearLogs();
+            clearJobs();
+            clearProgress();
+            Alert.alert('Data Cleared', 'All app data has been cleared.');
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -99,6 +126,10 @@ const DashboardScreen: React.FC = () => {
 
       <TouchableOpacity style={[styles.button, refreshing && styles.buttonDisabled]} onPress={refreshTvStatus} disabled={refreshing}>
         {refreshing ? <ActivityIndicator color={Colors.text} /> : <Text style={styles.buttonText}>REFRESH CONTROLLER</Text>}
+      </TouchableOpacity>
+
+      <TouchableOpacity style={[styles.button, styles.clearDataButton]} onPress={clearAllData}>
+        <Text style={styles.buttonText}>CLEAR ALL DATA</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -172,6 +203,7 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   },
   cleanupButton: { backgroundColor: Colors.warning, borderWidth: 0 },
+  clearDataButton: { backgroundColor: Colors.error, borderWidth: 0 },
   buttonDisabled: { opacity: 0.55 },
   buttonText: {
     fontSize: 16,

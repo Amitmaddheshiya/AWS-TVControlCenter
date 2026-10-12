@@ -74,6 +74,12 @@ const ConsoleScreen: React.FC = () => {
         <TouchableOpacity style={styles.presetButton} onPress={() => useCommand('pm disable-user --user 0 tv.cloudwalker.channels')}>
           <Text style={styles.presetButtonText}>Disable Channels</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={[styles.presetButton, styles.uninstallButton]} onPress={() => useCommand('pm uninstall --user 0 tv.cloudwalker.profile')}>
+          <Text style={styles.presetButtonText}>Uninstall Profile</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.presetButton, styles.uninstallButton]} onPress={() => useCommand('pm uninstall --user 0 tv.cloudwalker.channels')}>
+          <Text style={styles.presetButtonText}>Uninstall Channels</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.presetButton} onPress={() => useCommand('pm disable-user --user 0 tv.cloudwalker.updater')}>
           <Text style={styles.presetButtonText}>Disable Updater</Text>
         </TouchableOpacity>
@@ -206,6 +212,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     marginRight: 8,
+  },
+  uninstallButton: {
+    backgroundColor: Colors.error,
   },
   presetButtonText: {
     fontSize: 12,

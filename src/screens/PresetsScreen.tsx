@@ -13,6 +13,11 @@ const PresetsScreen: React.FC = () => {
   const [runningId, setRunningId] = React.useState<string | null>(null);
 
   const run = async (preset: typeof presets[number]) => {
+    if (preset.steps.length === 0) {
+      Alert.alert('No Actions', 'This cleanup preset has no actions configured.');
+      return;
+    }
+
     try {
       const devices = getSelectedConnectedDevices();
       setRunningId(preset.id);
@@ -30,6 +35,9 @@ const PresetsScreen: React.FC = () => {
             }
             if (step.type === 'ENABLE_PACKAGE') {
               await TvControlService.enablePackage(device.deviceId, p);
+            }
+            if (step.type === 'UNINSTALL_PACKAGE') {
+              await TvControlService.shell(device.deviceId, `pm uninstall --user 0 ${p}`);
             }
             if (step.type === 'SHELL_COMMAND') {
               await TvControlService.shell(device.deviceId, String(step.params.command || ''));

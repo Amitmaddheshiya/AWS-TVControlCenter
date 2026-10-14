@@ -1,12 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDeviceStore } from '../store/deviceStore';
 import { useLogStore } from '../store/logStore';
 import { useDeploymentStore } from '../store/deploymentStore';
 import { useProgressStore } from '../store/progressStore';
 import { Colors } from '../constants/colors';
 import { TvControlService } from '../services/TvControlService';
+import { getSelectedConnectedDevices } from '../utils/selectedDevice';
 
 const DashboardScreen: React.FC = () => {
   const { devices, addDevice, updateDevice, clearDevices } = useDeviceStore();
@@ -63,21 +65,71 @@ const DashboardScreen: React.FC = () => {
     } finally { setScanning(false); }
   };
 
-  const clearAllData = () => {
+  const clearAllData = async () => {
     Alert.alert(
       'Clear All Data?',
-      'This will remove all saved devices, logs, deployment history, and progress data. This action cannot be undone.',
+      'This will remove all saved devices, logs, deployment history, progress data, and all app settings. This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Clear Data',
           style: 'destructive',
-          onPress: () => {
-            clearDevices();
-            clearLogs();
-            clearJobs();
-            clearProgress();
-            Alert.alert('Data Cleared', 'All app data has been cleared.');
+          onPress: async () => {
+            try {
+              await AsyncStorage.clear();
+              clearDevices();
+              clearLogs();
+              clearJobs();
+              clearProgress();
+              Alert.alert('Data Cleared', 'All app data has been cleared. The app will restart.');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to clear data. Please try again.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const uninstallProfileAndChannels = async () => {
+    const devices = getSelectedConnectedDevices();
+    if (devices.length === 0) {
+      Alert.alert('No TVs Selected', 'Please select connected TVs from the TVs page first.');
+      navigation.navigate('TVs');
+      return;
+    }
+
+    Alert.alert(
+      'Uninstall Profile & Channels?',
+      `This will uninstall tv.cloudwalker.profile and tv.cloudwalker.channels from ${devices.length} selected TV(s). This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Uninstall',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              let successCount = 0;
+              let failCount = 0;
+
+              for (const device of devices) {
+                try {
+                  await TvControlService.shell(device.deviceId, 'pm uninstall --user 0 tv.cloudwalker.profile');
+                  await TvControlService.shell(device.deviceId, 'pm uninstall --user 0 tv.cloudwalker.channels');
+                  successCount++;
+                } catch (error) {
+                  console.error(`Failed to uninstall on ${device.name}:`, error);
+                  failCount++;
+                }
+              }
+
+              Alert.alert(
+                'Uninstall Complete',
+                `Successfully uninstalled from ${successCount} TV(s).${failCount > 0 ? ` Failed on ${failCount} TV(s).` : ''}`
+              );
+            } catch (error: any) {
+              Alert.alert('Error', error?.message || 'Failed to uninstall packages.');
+            }
           }
         }
       ]
@@ -120,12 +172,12 @@ const DashboardScreen: React.FC = () => {
         <Text style={styles.buttonText}>DEPLOY APK</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={[styles.button, styles.cleanupButton]} onPress={() => navigation.navigate('Presets')}>
-        <Text style={styles.buttonText}>CLEANUP SELECTED TVs</Text>
-      </TouchableOpacity>
-
       <TouchableOpacity style={[styles.button, refreshing && styles.buttonDisabled]} onPress={refreshTvStatus} disabled={refreshing}>
         {refreshing ? <ActivityIndicator color={Colors.text} /> : <Text style={styles.buttonText}>REFRESH CONTROLLER</Text>}
+      </TouchableOpacity>
+
+      <TouchableOpacity style={[styles.button, styles.uninstallButton]} onPress={uninstallProfileAndChannels}>
+        <Text style={styles.buttonText}>UNINSTALL PROFILE & CHANNELS</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={[styles.button, styles.clearDataButton]} onPress={clearAllData}>
@@ -203,6 +255,7 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   },
   cleanupButton: { backgroundColor: Colors.warning, borderWidth: 0 },
+  uninstallButton: { backgroundColor: '#FF6B35', borderWidth: 0 },
   clearDataButton: { backgroundColor: Colors.error, borderWidth: 0 },
   buttonDisabled: { opacity: 0.55 },
   buttonText: {

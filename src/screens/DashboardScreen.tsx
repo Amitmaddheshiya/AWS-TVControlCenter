@@ -136,6 +136,68 @@ const DashboardScreen: React.FC = () => {
     );
   };
 
+  const blockPopupCommands = [
+    'pm clear tv.cloudwalker.updater',
+    'pm clear tv.cloudwalker.market',
+    'cmd appops set tv.cloudwalker.updater SYSTEM_ALERT_WINDOW ignore',
+    'cmd appops set tv.cloudwalker.market SYSTEM_ALERT_WINDOW ignore',
+    'cmd appops set tv.cloudwalker.voice SYSTEM_ALERT_WINDOW ignore',
+    'cmd appops set tv.cloudwalker.inputserver SYSTEM_ALERT_WINDOW ignore',
+    'cmd appops set tv.cloudwalker.updater RUN_IN_BACKGROUND ignore',
+    'cmd appops set tv.cloudwalker.updater RUN_ANY_IN_BACKGROUND ignore',
+    'cmd appops set tv.cloudwalker.market RUN_IN_BACKGROUND ignore',
+    'cmd appops set tv.cloudwalker.market RUN_ANY_IN_BACKGROUND ignore',
+    'cmd appops set tv.cloudwalker.updater POST_NOTIFICATION ignore',
+    'cmd appops set tv.cloudwalker.market POST_NOTIFICATION ignore',
+    'cmd appops set tv.cloudwalker.voice POST_NOTIFICATION ignore',
+    'cmd appops set tv.cloudwalker.inputserver POST_NOTIFICATION ignore',
+  ];
+
+  const blockPopupNotifications = async () => {
+    const selectedDevices = getSelectedConnectedDevices();
+    if (selectedDevices.length === 0) {
+      Alert.alert('No TVs Selected', 'Please select connected TVs from the TVs page first.');
+      navigation.navigate('TVs');
+      return;
+    }
+
+    Alert.alert(
+      'Block Popup Commands?',
+      `This will clear data for tv.cloudwalker.updater and tv.cloudwalker.market, then change app permissions on ${selectedDevices.length} selected TV(s).`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Apply Commands',
+          style: 'destructive',
+          onPress: async () => {
+            let successCount = 0;
+            let failCount = 0;
+
+            for (const device of selectedDevices) {
+              try {
+                for (const command of blockPopupCommands) {
+                  const result = await TvControlService.shell(device.deviceId, command);
+                  if (result && !result.success) {
+                    throw new Error(result.stderr || `Command failed: ${command}`);
+                  }
+                }
+                successCount++;
+              } catch (error) {
+                console.error(`Failed to apply popup blocking commands on ${device.name}:`, error);
+                failCount++;
+              }
+            }
+
+            Alert.alert(
+              'Popup Commands Complete',
+              `Successfully applied to ${successCount} TV(s).${failCount > 0 ? ` Failed on ${failCount} TV(s).` : ''}`,
+            );
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -178,6 +240,10 @@ const DashboardScreen: React.FC = () => {
 
       <TouchableOpacity style={[styles.button, styles.uninstallButton]} onPress={uninstallProfileAndChannels}>
         <Text style={styles.buttonText}>UNINSTALL PROFILE & CHANNELS</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={[styles.button, styles.uninstallButton]} onPress={blockPopupNotifications}>
+        <Text style={styles.buttonText}>BLOCK POPUPS & NOTIFICATIONS</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={[styles.button, styles.clearDataButton]} onPress={clearAllData}>
